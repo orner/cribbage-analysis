@@ -450,8 +450,10 @@ def sweep(is_dealer=True, include_crib=False, opponent=None,
     deals = canonical_deals()
 
     if processes == 1:
+        weights = _opponent_weights(opponent, is_dealer)
         for deal, multiplicity in deals:
-            yield deal, multiplicity, _evaluate_canonical(deal, is_dealer, include_crib)[0]
+            yield deal, multiplicity, _evaluate_canonical(
+                deal, is_dealer, include_crib, weights)[0]
         return
 
     # Crib EVs take a half-second each, so hand those out one at a time; bare
@@ -459,7 +461,8 @@ def sweep(is_dealer=True, include_crib=False, opponent=None,
     if chunk_size is None:
         chunk_size = 1 if include_crib else 256
 
-    jobs = ((deal, multiplicity, is_dealer, include_crib) for deal, multiplicity in deals)
+    jobs = ((deal, multiplicity, is_dealer, include_crib, opponent)
+            for deal, multiplicity in deals)
     with Pool(processes) as pool:
         yield from pool.imap_unordered(_sweep_one, jobs, chunksize=chunk_size)
 
