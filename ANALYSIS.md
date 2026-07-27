@@ -20,7 +20,8 @@ for a hand EV of 22.78.
 ## Full-space results
 
 Every possible deal, weighted by multiplicity, playing the best discard against
-a policy opponent:
+a policy opponent (the sweep ran under iteration 1 of the model; iteration 2
+moves crib EV by 0.003 points, so these stand):
 
 | | hand EV | crib EV | total |
 |---|---|---|---|
@@ -91,8 +92,11 @@ reach your four cards.
 - The empirical distribution was validated two independent ways: a Monte Carlo
   simulation dealing both hands from one deck (-0.61 / +0.39) and the library's
   class-weighted model (-0.60 / +0.39). They were built separately and agree.
-- The opponent being modelled decides using the *uniform* model, since that is
-  what generated the tables. This is one refinement step, not a fixed point.
+- The opponent being modelled originally decided using the *uniform* model.
+  Iterating that -- regenerating the tables from players who best-respond to the
+  previous ones -- moved crib EV by 0.003 points and no throw class by more than
+  0.005, so the process has converged and the figures above are stable. See the
+  "Iterating the opponent model" section below.
 - The EV-lost figures are **upper bounds**. The realistic pricing averages 600
   sampled opponent throws per discard, and picking the argmax under a noisy
   estimate partly chases that noise.
@@ -108,6 +112,39 @@ was the first half of the canonical enumeration -- ordered by low card indices,
 and therefore biased toward low-rank deals. The final figures above are exact.
 The same bias affects the 25,618-deal comparison against the partial uniform
 sweep, so treat those percentages as indicative rather than full-space.
+
+## Iterating the opponent model
+
+The tables describe an opponent who is sharp about their own cards. But which
+model do *they* use? Iteration 1 assumed a random opponent; iteration 2
+best-responds to iteration 1. If that changes little, the process has converged.
+
+It changes almost nothing.
+
+| table | movement between iterations (total variation) |
+|---|---|
+| `PONE_POLICY` | 0.043 |
+| `DEALER_POLICY` | 0.053 |
+| `PONE_NAIVE` (control) | 0.0000 |
+| `DEALER_NAIVE` (control) | 0.0000 |
+
+| | iteration 1 -> 2 | uniform -> iteration 2 | same discard |
+|---|---|---|---|
+| your crib | **-0.003** | -0.598 | 97.2% |
+| their crib | **+0.003** | +0.395 | 96.8% |
+
+The second step is 200x smaller than the first and points the same way, which is
+convergence rather than oscillation. The naive controls moving *exactly* zero is
+the check that the comparison is wired correctly: naive players ignore the crib,
+so no opponent model can reach their decisions, and both runs used the same seed
+and therefore the same 50,000 hands. Drift there would have meant a bug.
+
+The largest movers are the near-indifferent cases you would expect -- the pone
+shuffling between 10-K, 7-K and 8-K, the dealer nudging toward A-3 and A-4.
+
+**Modelling the opponent is worth about half a point of calibration; modelling
+their model of you is worth nothing.** A third iteration would be wasted compute.
+
 
 ## Performance
 
