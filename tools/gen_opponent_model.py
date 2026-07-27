@@ -93,7 +93,9 @@ if __name__ == '__main__':
                 pool.map(throw, [(h, is_dealer, include_crib) for h in hands], 16))
             print(f'{name} done at {time.time() - t0:.0f}s', flush=True)
 
-    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'opponent_model.py'), 'w') as out:
+    out_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'opponent_model.py')
+    with open(out_path, 'w') as out:
         out.write(f'''"""What an opponent actually throws to the crib, measured rather than assumed.
 
 cribbage._crib_ev models the opponent's two crib cards as a uniform draw from
@@ -122,4 +124,4 @@ impossible just because it went unsampled.
         emit('DEALER_NAIVE', tables['DEALER_NAIVE'], out,
              'Thrown into THEIR OWN crib by a dealer who ignores the crib entirely.')
 
-    print(f'wrote /home/lance/src/cribbage/opponent_model.py in {time.time() - t0:.0f}s')
+    print(f'wrote {out_path} in {time.time() - t0:.0f}s')
