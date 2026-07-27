@@ -84,13 +84,18 @@ Same machine, 32 cores.
 
 | | Python | this C |
 |---|---|---|
-| one deal, crib EV | ~70 ms (CPython) | ~2 ms |
+| one scoring | 52 ns (PyPy), 177 ns (CPython) | **1.83 ns** |
+| one deal, crib EV | ~70 ms (CPython) | 1.25 ms |
 | enumerate canonical deals | ~1 min (serial) | 0.5 s |
 | full hand-EV sweep | 1.0 min (32 cores) | 0.9 s (32 threads) |
+| full crib sweep, both roles | 23.9 min, policy (32 cores) | ~3 min, uniform (32 threads) |
 
-Take these as indicative rather than careful benchmarks — they are wall-clock
-times including process startup, not the isolated per-call figures in
-`../ANALYSIS.md`.
+The per-scoring figure subtracts a measured process-startup baseline; the sweep
+rows are plain wall clock. The last row is not like-for-like — the Python ran
+the *policy* model, which carries per-throw weights this does not.
+
+`../NOTES.md` estimated 3-5 ns per scoring for a C core before one existed,
+which turned out to be a slightly pessimistic guess.
 
 ## What is not ported
 

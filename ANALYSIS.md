@@ -44,6 +44,28 @@ Most common throws into your own crib as dealer: 7-8 (4.27%), 2-3 (3.34%),
 ranking, not a quality one -- 5-5 is the strongest throw by value and barely
 appears, because you seldom hold two 5s you can spare.
 
+### The same space under uniform pricing
+
+The uniform sweep is complete as well, run by the C port in `c/` (~3 minutes on
+32 threads). It reproduces 962,988 canonical deals summing to C(52,6), which is
+the check that its canonicalisation agrees with the Python's.
+
+| | hand EV | crib EV | total |
+|---|---|---|---|
+| as dealer | 8.003 | 5.298 | **13.301** |
+| as pone | 8.133 | 4.215 | **3.918** |
+
+Both findings above survive the change of opponent model. The pone's hand is
+still worth more than the dealer's, 8.133 against 8.003, and the two roles still
+keep different cards in 59.9% of deals against 60.0%.
+
+Set beside the policy figures, uniform pricing overstates your crib by 0.561 and
+understates theirs by 0.426. Those sit close to the 0.60 and 0.39 in the next
+section, but they are **not the same quantity**: that section reprices identical
+discards, while these two sweeps each play their own best discard, so the
+chosen keep sometimes differs. Two constructions, two implementations, two
+languages, landing a few hundredths apart.
+
 ## What opponents actually throw
 
 Sampled from 20,000 hands per policy, each resolved with the evaluator:
@@ -111,7 +133,10 @@ results as they complete, but tasks are *dispatched* in order, so the first half
 was the first half of the canonical enumeration -- ordered by low card indices,
 and therefore biased toward low-rank deals. The final figures above are exact.
 The same bias affects the 25,618-deal comparison against the partial uniform
-sweep, so treat those percentages as indicative rather than full-space.
+sweep, so treat those percentages as indicative rather than full-space. The
+uniform sweep has since been completed over the whole space -- see "The same
+space under uniform pricing" above -- so that comparison no longer has to rest
+on the partial one.
 
 ## Iterating the opponent model
 

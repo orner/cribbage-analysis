@@ -11,6 +11,7 @@ opponent_model.py   generated data: what a policy opponent actually throws
 opponent_model_v1.py  the previous iteration, kept for diffing
 tests/              correctness suite (plain scripts, no framework; run them directly)
 tools/              generators, sweep drivers, benchmarks, the opponent experiment
+c/                  a standalone C port -- library, CLI, threaded sweep, tests
 ```
 
 ## API
@@ -122,13 +123,26 @@ exactly, which exercises every branch against an implementation already trusted.
   reproduces it. Modelling the opponent is worth half a point; modelling their
   model of you is worth nothing.
 
+- **The uniform sweep is complete.** Done by the C port rather than by
+  `tools/sweep_uniform.py`: dealer 13.301, pone 3.918 over the full space, in
+  about 3 minutes on 32 threads. It reproduces 962,988 canonical deals summing
+  to C(52,6), and the gap against the policy sweep (0.561 and 0.426) corroborates
+  the 0.60/0.39 calibration error measured the other way. See ANALYSIS.md.
+
+- **A C core exists, as a standalone program.** `c/` is a full C11 translation
+  -- scoring, both EVs, canonicalisation, a threaded sweep -- checked against
+  this library by `c/tools/difftest.py` on random hands and deals, with zero
+  mismatches. Scoring measured at **1.83 ns**, against the 3-5 ns estimated and
+  PyPy's 52 ns. It does *not* implement the opponent model, and it is not bound
+  to the Python API; see the note below.
+
 ## Open threads
 
-- **Complete the uniform sweep** if a like-for-like full-space comparison with
-  the policy sweep is wanted (~15 min now). The current comparison rests on
-  25,618 shared deals that are *not* a random sample -- see ANALYSIS.md.
-- **Rust/C core** for `_score` and `_crib_ev`, behind the existing Python API.
-  Estimated 3-5 ns per scoring against PyPy's 52 ns. The differential tests make
-  the port cheap to validate; the estimate is unmeasured.
+- **Bind the C to the Python API**, so `_score` and `_crib_ev` can be backed by
+  it without changing callers. The port in `c/` is a separate program, not an
+  extension module, so nothing in Python benefits from it yet.
+- **Port the opponent model to C**, which means emitting `opponent_model.py`'s
+  tables as C data. Until then the C prices the crib uniformly and cannot
+  reproduce the policy sweep.
 - **Pegging.** Everything here is hand and crib EV only. The play of the hand is
   untouched, and it is where the rest of the game lives.
