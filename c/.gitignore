@@ -1,0 +1,5 @@
+# Build output
+*.o
+crib
+crib_test
+crib_sweep
