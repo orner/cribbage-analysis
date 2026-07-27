@@ -130,19 +130,27 @@ exactly, which exercises every branch against an implementation already trusted.
   the 0.60/0.39 calibration error measured the other way. See ANALYSIS.md.
 
 - **A C core exists, as a standalone program.** `c/` is a full C11 translation
-  -- scoring, both EVs, canonicalisation, a threaded sweep -- checked against
-  this library by `c/tools/difftest.py` on random hands and deals, with zero
-  mismatches. Scoring measured at **1.83 ns**, against the 3-5 ns estimated and
-  PyPy's 52 ns. It does *not* implement the opponent model, and it is not bound
-  to the Python API; see the note below.
+  -- scoring, both EVs, canonicalisation, the opponent model, and a threaded
+  sweep -- checked against this library by `c/tools/difftest.py` on random hands
+  and deals under all three opponent models, with zero mismatches. Scoring
+  measured at **1.83 ns**, against the 3-5 ns estimated and PyPy's 52 ns. It is
+  not bound to the Python API; see the note below.
+
+- **The opponent model is ported.** `c/opponent_model_data.c` is generated from
+  `opponent_model.py` by `c/tools/gen_opponent_model_c.py`, so this file stays
+  the source of truth -- regenerate the model here, then re-run that script. All
+  364 class probabilities round-trip exactly. `crib_sweep crib 32 policy`
+  reproduces the policy sweep in about 3 minutes.
 
 ## Open threads
 
 - **Bind the C to the Python API**, so `_score` and `_crib_ev` can be backed by
   it without changing callers. The port in `c/` is a separate program, not an
   extension module, so nothing in Python benefits from it yet.
-- **Port the opponent model to C**, which means emitting `opponent_model.py`'s
-  tables as C data. Until then the C prices the crib uniformly and cannot
-  reproduce the policy sweep.
+- **Reconcile the iteration-1 to iteration-2 movement.** The C policy sweep runs
+  iteration 2 and lands 0.026 above the iteration-1 pone crib figure, where
+  "Iterating the opponent model" records the movement as 0.003. The two are
+  measured differently, but not by enough to obviously explain ten times.
+  `tools/compare_model_iterations.py` is where to settle it. See ANALYSIS.md.
 - **Pegging.** Everything here is hand and crib EV only. The play of the hand is
   untouched, and it is where the rest of the game lives.

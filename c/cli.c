@@ -2,7 +2,8 @@
  *
  *   crib score  <4 cards> <starter>   score a hand
  *   crib hand   <6 cards>             rank the fifteen discards, hand EV only
- *   crib crib   <6 cards> [pone]      rank them with crib EV too (slower)
+ *   crib crib   <6 cards> [pone] [policy|naive]
+ *                                     rank them with crib EV too (slower)
  *
  * Cards are written "5H", "10S" or "TS", "AD". Case does not matter.
  */
@@ -37,11 +38,12 @@ static int usage(void)
             "usage:\n"
             "  crib score <c1> <c2> <c3> <c4> <starter>\n"
             "  crib hand  <c1> ... <c6>\n"
-            "  crib crib  <c1> ... <c6> [pone]\n");
+            "  crib crib  <c1> ... <c6> [pone] [policy|naive]\n");
     return 2;
 }
 
-static int show_discards(char **cards_argv, bool include_crib, bool is_dealer)
+static int show_discards(char **cards_argv, bool include_crib, bool is_dealer,
+                         cr_opponent opponent)
 {
     cr_card deal[6];
     if (!read_cards(cards_argv, 6, deal))
@@ -55,7 +57,7 @@ static int show_discards(char **cards_argv, bool include_crib, bool is_dealer)
             }
 
     cr_discard results[CR_NDISCARDS];
-    cr_evaluate_discards(deal, is_dealer, include_crib, results);
+    cr_evaluate_discards(deal, is_dealer, include_crib, opponent, results);
 
     printf("%-4s %-16s %-8s %8s %8s %8s\n", "", "keep", "toss", "hand", "crib", "total");
     for (int i = 0; i < CR_NDISCARDS; i++) {
@@ -98,14 +100,25 @@ int main(int argc, char **argv)
     if (strcmp(argv[1], "hand") == 0) {
         if (argc != 8)
             return usage();
-        return show_discards(&argv[2], false, true);
+        return show_discards(&argv[2], false, true, CR_UNIFORM);
     }
 
     if (strcmp(argv[1], "crib") == 0) {
-        if (argc != 8 && argc != 9)
+        if (argc < 8)
             return usage();
-        bool is_dealer = !(argc == 9 && strcmp(argv[8], "pone") == 0);
-        return show_discards(&argv[2], true, is_dealer);
+        bool is_dealer = true;
+        cr_opponent opponent = CR_UNIFORM;
+        for (int i = 8; i < argc; i++) {
+            if (strcmp(argv[i], "pone") == 0)
+                is_dealer = false;
+            else if (strcmp(argv[i], "policy") == 0)
+                opponent = CR_POLICY;
+            else if (strcmp(argv[i], "naive") == 0)
+                opponent = CR_NAIVE;
+            else
+                return usage();
+        }
+        return show_discards(&argv[2], true, is_dealer, opponent);
     }
 
     (void)print_cards;

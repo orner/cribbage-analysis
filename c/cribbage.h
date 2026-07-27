@@ -63,6 +63,32 @@ double cr_hand_ev(const cr_card keep[4], const cr_card *unseen, int n_unseen);
  * where a sweep spends essentially all of its time. */
 double cr_crib_ev(const cr_card toss[2], const cr_card *unseen, int n_unseen);
 
+/* Which opponent the crib is priced against. Uniform treats their two cards as
+ * a random draw -- the usual approximation, and the right one for *choosing* a
+ * discard. Policy models an opponent who weighs the crib; naive one who ignores
+ * it. Modelling shifts crib EV by about half a point but rarely changes which
+ * discard wins; see ../ANALYSIS.md. */
+typedef enum {
+    CR_UNIFORM = 0,
+    CR_POLICY = 1,
+    CR_NAIVE = 2,
+} cr_opponent;
+
+/* Four tables: pone and dealer, policy and naive. Generated from
+ * ../opponent_model.py by tools/gen_opponent_model_c.py. */
+#define CR_OPP_NTABLES 4
+extern const double cr_opponent_tables[CR_OPP_NTABLES][14][14][2];
+
+/* The distribution facing you this deal, or NULL for uniform. When you deal,
+ * the opponent is the pone throwing into your crib; when they deal, they are
+ * feeding their own. */
+const double (*cr_opponent_weights(cr_opponent opponent, bool is_dealer))[14][2];
+
+/* Crib EV against an opponent who chooses. Same enumeration as cr_crib_ev,
+ * except each throw carries the probability this opponent actually makes it. */
+double cr_crib_ev_modeled(const cr_card toss[2], const cr_card *unseen, int n_unseen,
+                          const double (*weights)[14][2]);
+
 /* Relabel suits into canonical order. out receives n cards; suit_map, indexed
  * by the original suit character, receives the canonical character it became.
  * Permuting suits cannot change any score, so this collapses the 20,358,520
@@ -70,9 +96,10 @@ double cr_crib_ev(const cr_card toss[2], const cr_card *unseen, int n_unseen);
 void cr_canonicalize(const cr_card *in, int n, cr_card *out, char suit_map[128]);
 
 /* Rank all fifteen discards from a six-card deal, best first. out must have
- * room for CR_NDISCARDS entries. Returns the number written (always 15). */
+ * room for CR_NDISCARDS entries. Returns the number written (always 15).
+ * opponent is ignored unless include_crib is set. */
 int cr_evaluate_discards(const cr_card deal[6], bool is_dealer, bool include_crib,
-                         cr_discard out[CR_NDISCARDS]);
+                         cr_opponent opponent, cr_discard out[CR_NDISCARDS]);
 
 /* Fills unseen with the 46 cards not in the deal. Returns the count. */
 int cr_unseen(const cr_card *dealt, int n_dealt, cr_card *unseen);

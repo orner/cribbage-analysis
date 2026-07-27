@@ -66,6 +66,33 @@ discards, while these two sweeps each play their own best discard, so the
 chosen keep sometimes differs. Two constructions, two implementations, two
 languages, landing a few hundredths apart.
 
+### The policy sweep, re-run in C
+
+The C also carries the opponent model, so the policy sweep can be reproduced
+independently. Note that it runs **iteration 2** of the model -- whatever
+`opponent_model.py` currently holds -- while the full-space figures at the top
+of this file were computed under iteration 1:
+
+| | C, iteration 2 | above, iteration 1 | delta |
+|---|---|---|---|
+| dealer total | 12.716 | 12.727 | -0.011 |
+| pone total | 3.459 | 3.484 | -0.025 |
+| dealer crib | 4.728 | 4.737 | -0.009 |
+| pone crib | 4.667 | 4.641 | **+0.026** |
+
+Hand EVs agree to 0.003, and the roles still disagree on 59.8% of deals against
+60.0%. The crib columns move in the directions a 40-deal Python sample predicts
+for the same iteration change (-0.005 and +0.032), so this is the model
+iteration talking, not a disagreement between the implementations -- which
+`c/tools/difftest.py` checks deal by deal.
+
+Worth a second look, though: the pone-side movement here is around +0.03,
+against the **+0.003** recorded under "Iterating the opponent model" below. Ten
+times larger. The two are measured differently -- that section reprices fixed
+discards over sampled hands, this re-chooses over the full space -- so they are
+not required to agree, but the gap is bigger than that difference alone
+comfortably explains. `tools/compare_model_iterations.py` is where to settle it.
+
 ## What opponents actually throw
 
 Sampled from 20,000 hands per policy, each resolved with the evaluator:

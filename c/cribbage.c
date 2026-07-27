@@ -317,6 +317,105 @@ double cr_crib_ev(const cr_card toss[2], const cr_card *unseen, int n_unseen)
     return (double)total / (count * (count - 1) * (count - 2) / 2.0);
 }
 
+/* ------------------------------------------------------- modelled crib EV */
+
+/* How many concrete two-card throws each class has in a full deck: six for a
+ * same-rank pair, four suited and twelve unsuited for two different ranks. */
+static inline double class_size(int low, int high, bool suited)
+{
+    if (low == high)
+        return 6.0;
+    return suited ? 4.0 : 12.0;
+}
+
+const double (*cr_opponent_weights(cr_opponent opponent, bool is_dealer))[14][2]
+{
+    if (opponent == CR_UNIFORM)
+        return NULL;
+    /* When I deal, the opponent is the pone throwing into my crib; when they
+     * deal, they are feeding their own. */
+    int table = (opponent == CR_POLICY) ? (is_dealer ? 0 : 1) : (is_dealer ? 2 : 3);
+    return cr_opponent_tables[table];
+}
+
+double cr_crib_ev_modeled(const cr_card toss[2], const cr_card *unseen, int n_unseen,
+                          const double (*weights)[14][2])
+{
+    const char suit_a = toss[0].suit, suit_b = toss[1].suit;
+    const uint64_t toss_key = RANK_BITS[toss[0].rank] + RANK_BITS[toss[1].rank];
+    const bool toss_suited = suit_a == suit_b;
+
+    char jack_suits[2] = {0, 0};
+    int n_jacks = 0;
+    for (int i = 0; i < 2; i++)
+        if (toss[i].rank == CR_JACK)
+            jack_suits[n_jacks++] = toss[i].suit;
+
+    /* Every throw the opponent might make that this model gives any weight to.
+     * A class's probability is split evenly across the throws it has in a full
+     * deck, so a class you have partly blocked -- because you hold cards it
+     * needs -- keeps only the share that survives, which is what conditioning
+     * on your own hand should do. The divisor is then the weight that really
+     * accumulated, not the weight the class started with. */
+    struct throw_option {
+        double weight;
+        int i, j;
+        uint64_t key;
+        uint8_t rank_c, rank_d;
+        char suit_c, suit_d;
+    };
+    static _Thread_local struct throw_option throws[CR_DECK_SIZE * CR_DECK_SIZE / 2];
+    int n_throws = 0;
+
+    for (int i = 0; i < n_unseen; i++)
+        for (int j = i + 1; j < n_unseen; j++) {
+            int ra = unseen[i].rank, rb = unseen[j].rank;
+            int low = ra <= rb ? ra : rb, high = ra <= rb ? rb : ra;
+            bool suited = unseen[i].suit == unseen[j].suit;
+            double weight = weights[low][high][suited ? 1 : 0];
+            if (weight == 0.0)
+                continue;
+            struct throw_option *t = &throws[n_throws++];
+            t->weight = weight / class_size(low, high, suited);
+            t->i = i;
+            t->j = j;
+            t->key = RANK_BITS[ra] + RANK_BITS[rb];
+            t->rank_c = unseen[i].rank;
+            t->rank_d = unseen[j].rank;
+            t->suit_c = unseen[i].suit;
+            t->suit_d = unseen[j].suit;
+        }
+
+    double total = 0.0, weight_total = 0.0;
+
+    for (int s = 0; s < n_unseen; s++) {
+        const char starter_suit = unseen[s].suit;
+        const uint64_t base = toss_key + RANK_BITS[unseen[s].rank];
+        const bool flush_possible = toss_suited && suit_a == starter_suit;
+
+        int nobs = 0;
+        for (int k = 0; k < n_jacks; k++)
+            if (jack_suits[k] == starter_suit)
+                nobs = 1;
+
+        for (int t = 0; t < n_throws; t++) {
+            const struct throw_option *o = &throws[t];
+            if (o->i == s || o->j == s)
+                continue;
+            int score = base_lookup(base + o->key) + nobs;
+            if (!nobs && ((o->rank_c == CR_JACK && o->suit_c == starter_suit) ||
+                          (o->rank_d == CR_JACK && o->suit_d == starter_suit)))
+                score += 1;
+            if (flush_possible && o->suit_c == starter_suit && o->suit_d == starter_suit)
+                score += 5;
+            total += o->weight * score;
+            weight_total += o->weight;
+        }
+    }
+
+    return total / weight_total;
+}
+
 /* -------------------------------------------------------- canonicalisation */
 
 /* Sorting helper: the rank multiset a suit holds, plus the suit itself. */
@@ -427,10 +526,11 @@ static int compare_discards(const void *pa, const void *pb)
 }
 
 int cr_evaluate_discards(const cr_card deal[6], bool is_dealer, bool include_crib,
-                         cr_discard out[CR_NDISCARDS])
+                         cr_opponent opponent, cr_discard out[CR_NDISCARDS])
 {
     cr_card unseen[CR_DECK_SIZE];
     int n_unseen = cr_unseen(deal, 6, unseen);
+    const double(*weights)[14][2] = cr_opponent_weights(opponent, is_dealer);
 
     for (int d = 0; d < CR_NDISCARDS; d++) {
         cr_discard *r = &out[d];
@@ -450,7 +550,12 @@ int cr_evaluate_discards(const cr_card deal[6], bool is_dealer, bool include_cri
             }
 
         r->hand_ev = cr_hand_ev(r->keep, unseen, n_unseen);
-        r->crib_ev = include_crib ? cr_crib_ev(r->toss, unseen, n_unseen) : 0.0;
+        if (!include_crib)
+            r->crib_ev = 0.0;
+        else if (weights == NULL)
+            r->crib_ev = cr_crib_ev(r->toss, unseen, n_unseen);
+        else
+            r->crib_ev = cr_crib_ev_modeled(r->toss, unseen, n_unseen, weights);
         r->total_ev = r->hand_ev + (is_dealer ? r->crib_ev : -r->crib_ev);
     }
 

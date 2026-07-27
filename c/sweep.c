@@ -151,6 +151,7 @@ typedef struct {
     canonical_deal *deals;
     size_t start, end;
     bool include_crib;
+    cr_opponent opponent;
     /* accumulated, weighted by multiplicity */
     double dealer_hand, dealer_crib, dealer_total;
     double pone_hand, pone_crib, pone_total;
@@ -173,8 +174,8 @@ static void *run_worker(void *arg)
         key_to_cards(w->deals[i].key, deal);
         double m = (double)w->deals[i].multiplicity;
 
-        cr_evaluate_discards(deal, true, w->include_crib, dealer);
-        cr_evaluate_discards(deal, false, w->include_crib, pone);
+        cr_evaluate_discards(deal, true, w->include_crib, w->opponent, dealer);
+        cr_evaluate_discards(deal, false, w->include_crib, w->opponent, pone);
 
         w->dealer_hand += m * dealer[0].hand_ev;
         w->dealer_crib += m * dealer[0].crib_ev;
@@ -207,10 +208,17 @@ int main(int argc, char **argv)
 {
     bool include_crib = argc > 1 && strcmp(argv[1], "crib") == 0;
     if (argc > 1 && strcmp(argv[1], "hand") != 0 && !include_crib) {
-        fprintf(stderr, "usage: crib_sweep hand|crib [threads]\n");
+        fprintf(stderr, "usage: crib_sweep hand|crib [threads] [policy|naive]\n");
         return 2;
     }
-    int threads = argc > 2 ? atoi(argv[2]) : 4;
+    cr_opponent opponent = CR_UNIFORM;
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i], "policy") == 0)
+            opponent = CR_POLICY;
+        else if (strcmp(argv[i], "naive") == 0)
+            opponent = CR_NAIVE;
+    }
+    int threads = argc > 2 && atoi(argv[2]) > 0 ? atoi(argv[2]) : 4;
     if (threads < 1)
         threads = 1;
 
@@ -231,7 +239,8 @@ int main(int argc, char **argv)
     free(deal_table);
 
     total_deals_for_progress = n;
-    fprintf(stderr, "sweeping with %d thread(s)%s...\n", threads,
+    fprintf(stderr, "sweeping with %d thread(s), opponent=%s%s...\n", threads,
+            opponent == CR_UNIFORM ? "uniform" : (opponent == CR_POLICY ? "policy" : "naive"),
             include_crib ? " (crib EV: this takes a while)" : "");
 
     worker *workers = calloc((size_t)threads, sizeof *workers);
@@ -241,6 +250,7 @@ int main(int argc, char **argv)
         workers[t].start = n * (size_t)t / (size_t)threads;
         workers[t].end = n * (size_t)(t + 1) / (size_t)threads;
         workers[t].include_crib = include_crib;
+        workers[t].opponent = opponent;
         pthread_create(&tids[t], NULL, run_worker, &workers[t]);
     }
 

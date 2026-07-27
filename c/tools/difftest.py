@@ -60,8 +60,10 @@ def parse_table(text):
     return rows
 
 
-def check_discards(trials, rng, include_crib, is_dealer=True):
+def check_discards(trials, rng, include_crib, is_dealer=True, opponent=None):
     what = "crib EV" if include_crib else "hand EV"
+    if include_crib:
+        what += f", {opponent or 'uniform'} opponent"
     role = "dealer" if is_dealer else "pone"
     print(f"discards ({what}, {role}): {trials} random deals")
     bad = 0
@@ -70,10 +72,12 @@ def check_discards(trials, rng, include_crib, is_dealer=True):
         args = ["crib" if include_crib else "hand"] + deal
         if include_crib and not is_dealer:
             args.append("pone")
+        if include_crib and opponent:
+            args.append(opponent)
         rows = parse_table(run(args))
 
         expected = cribbage.evaluate_discards(
-            deal, is_dealer=is_dealer, include_crib=include_crib
+            deal, is_dealer=is_dealer, include_crib=include_crib, opponent=opponent
         )
         if len(rows) != len(expected):
             print(f"  MISMATCH {deal}: {len(rows)} rows vs {len(expected)}")
@@ -113,8 +117,13 @@ def main():
     bad += check_scoring(trials * 4, rng)
     bad += check_discards(trials, rng, include_crib=False)
     # Crib EV is ~45,540 scorings per discard, so far fewer deals.
-    bad += check_discards(max(3, trials // 100), rng, include_crib=True)
-    bad += check_discards(max(3, trials // 100), rng, include_crib=True, is_dealer=False)
+    n = max(3, trials // 100)
+    bad += check_discards(n, rng, include_crib=True)
+    bad += check_discards(n, rng, include_crib=True, is_dealer=False)
+    # The modelled path: policy and naive, from both sides of the table.
+    bad += check_discards(n, rng, include_crib=True, opponent="policy")
+    bad += check_discards(n, rng, include_crib=True, opponent="policy", is_dealer=False)
+    bad += check_discards(n, rng, include_crib=True, opponent="naive")
 
     print()
     if bad:

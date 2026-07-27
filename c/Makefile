@@ -9,13 +9,13 @@ BINARIES = crib crib_test crib_sweep
 
 all: $(BINARIES)
 
-crib: cli.o cribbage.o
+crib: cli.o cribbage.o opponent_model_data.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 
-crib_test: test_cribbage.o cribbage.o
+crib_test: test_cribbage.o cribbage.o opponent_model_data.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 
-crib_sweep: sweep.o cribbage.o
+crib_sweep: sweep.o cribbage.o opponent_model_data.o
 	$(CC) $(CFLAGS) -pthread -o $@ $^ $(LDFLAGS) $(LDLIBS)
 
 %.o: %.c cribbage.h

@@ -21,9 +21,11 @@ make difftest   # check this C against cribbage.py (needs python3)
 ./crib hand  5H 5S 5D JC 2H 9D       # rank the 15 discards, hand EV only
 ./crib crib  5H 5S 5D JC 2H 9D       # ... with crib EV too
 ./crib crib  5H 5S 5D JC 2H 9D pone  # crib counts against you
+./crib crib  5H 5S 5D JC 2H 9D policy  # priced against a thinking opponent
 
 ./crib_sweep hand 32                 # every deal, hand EV     (~1 s on 32 cores)
 ./crib_sweep crib 32                 # every deal, with crib EV (much longer)
+./crib_sweep crib 32 policy          # ... against the policy opponent
 ```
 
 Cards are `5H`, `10S` or `TS`, `AD`. Case does not matter.
@@ -33,6 +35,8 @@ Cards are `5H`, `10S` or `TS`, `AD`. Case does not matter.
 | | |
 |---|---|
 | `cribbage.h` / `cribbage.c` | the library: scoring, EVs, canonicalisation |
+| `opponent_model_data.c` | generated tables — what a real opponent throws |
+| `tools/gen_opponent_model_c.py` | regenerates that from `../opponent_model.py` |
 | `cli.c` | `crib` — score a hand, rank the discards |
 | `sweep.c` | `crib_sweep` — enumerate and evaluate every deal, threaded |
 | `test_cribbage.c` | correctness suite, including a second independent scorer |
@@ -72,8 +76,9 @@ hand-picked cases:
    200,000 random hands under both the hand and the crib flush rule, plus a
    suit-relabelling invariance check over 20,000 more.
 3. **This C against `cribbage.py`**, via `tools/difftest.py`: random hands
-   scored both ways, and random deals run through the full discard evaluation
-   with and without crib EV, for both dealer and pone.
+   scored both ways, and random deals run through the full discard evaluation —
+   with and without crib EV, for both dealer and pone, and under all three
+   opponent models.
 
 All three pass. Note that four of the expected values in leg 1 were wrong when
 first written and the code was right; the Python was the tiebreaker.
@@ -88,29 +93,43 @@ Same machine, 32 cores.
 | one deal, crib EV | ~70 ms (CPython) | 1.25 ms |
 | enumerate canonical deals | ~1 min (serial) | 0.5 s |
 | full hand-EV sweep | 1.0 min (32 cores) | 0.9 s (32 threads) |
-| full crib sweep, both roles | 23.9 min, policy (32 cores) | ~3 min, uniform (32 threads) |
+| full crib sweep, both roles | 23.9 min, policy (32 cores) | ~3 min, policy or uniform (32 threads) |
 
 The per-scoring figure subtracts a measured process-startup baseline; the sweep
-rows are plain wall clock. The last row is not like-for-like — the Python ran
-the *policy* model, which carries per-throw weights this does not.
+rows are plain wall clock.
 
 `../NOTES.md` estimated 3-5 ns per scoring for a C core before one existed,
 which turned out to be a slightly pessimistic guess.
 
+## The opponent model
+
+The crib can be priced three ways, matching the Python:
+
+| | |
+|---|---|
+| uniform (default) | the opponent's two cards are a random draw from the unseen |
+| `policy` | an opponent who weighs the crib — starves yours, feeds their own |
+| `naive` | an opponent who keeps their best hand and ignores the crib |
+
+```sh
+./crib crib 5S 5H 5D JC 2S 9S            # uniform
+./crib crib 5S 5H 5D JC 2S 9S policy     # against a thinking opponent
+./crib crib 5S 5H 5D JC 2S 9S pone naive # their crib, naive opponent
+./crib_sweep crib 32 policy              # the whole space, policy priced
+```
+
+`opponent_model_data.c` is **generated** from `../opponent_model.py` by
+`tools/gen_opponent_model_c.py`. The Python remains the source of truth: after
+regenerating the model there, re-run that script rather than editing the C data
+by hand.
+
+A class's probability is split across the throws it has in a full deck, so a
+class you have partly blocked — because you hold cards it needs — keeps only the
+share that survives. Dividing by availability instead would keep a blocked class
+at full weight, which is wrong, and is one of the three bugs `../NOTES.md`
+warns against reintroducing.
+
 ## What is not ported
-
-**The opponent model.** `cribbage.py` can price the crib against what a real
-opponent actually throws (`opponent="policy"` or `"naive"`), which shifts crib
-EV by about half a point. That path depends on the generated tables in
-`opponent_model.py`, and porting it means emitting those as C data. This version
-prices the opponent's two cards as a uniform draw from the unseen cards, which
-is the Python's default and the right model for *choosing* a discard anyway —
-see `../ANALYSIS.md`, which finds the same discard is chosen 92–96% of the time
-either way.
-
-So `crib_sweep crib` is a full-space **uniform** sweep. The Python's headline
-figures (dealer 12.727, pone 3.484) come from the *policy* sweep and are not
-what this will print.
 
 **Pegging.** Untouched here, as in the Python. It is where the rest of the game
 lives.

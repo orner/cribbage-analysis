@@ -283,7 +283,7 @@ static void test_discard_ordering(void)
         deal[i] = card(text[i]);
 
     cr_discard results[CR_NDISCARDS];
-    cr_evaluate_discards(deal, true, false, results);
+    cr_evaluate_discards(deal, true, false, CR_UNIFORM, results);
 
     bool ordered = true;
     for (int i = 1; i < CR_NDISCARDS; i++)
