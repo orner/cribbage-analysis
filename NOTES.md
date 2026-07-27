@@ -117,11 +117,14 @@ exactly, which exercises every branch against an implementation already trusted.
   best-respond to iteration 1 rather than assuming a random opponent
   (`pypy3 tools/gen_opponent_model.py policy`; iteration 1 is kept as
   `opponent_model_v1.py`). The tables moved 0.04-0.05 in total variation, no
-  single throw class by more than 0.005, and crib EV by **0.003 points** --
-  against the ~0.5 points that iteration 1 gained over the uniform model, so the
-  second step is 200x smaller and in the same direction. `tools/compare_model_iterations.py`
-  reproduces it. Modelling the opponent is worth half a point; modelling their
-  model of you is worth nothing.
+  single throw class by more than 0.005, and crib EV by **0.003 points averaged
+  over all fifteen discards -- but 0.025 on the one actually played**, because
+  your choice is correlated with the classes that moved. Against the ~0.5 points
+  iteration 1 gained over uniform, the second step is still 20x smaller and in
+  the same direction. `tools/compare_model_iterations.py` reports both numbers;
+  quoting only the slate average understates what reaches the table by about
+  ten times. Modelling the opponent is worth half a point; modelling their model
+  of you is worth about 0.025.
 
 - **The uniform sweep is complete.** Done by the C port rather than by
   `tools/sweep_uniform.py`: dealer 13.301, pone 3.918 over the full space, in
@@ -147,10 +150,10 @@ exactly, which exercises every branch against an implementation already trusted.
 - **Bind the C to the Python API**, so `_score` and `_crib_ev` can be backed by
   it without changing callers. The port in `c/` is a separate program, not an
   extension module, so nothing in Python benefits from it yet.
-- **Reconcile the iteration-1 to iteration-2 movement.** The C policy sweep runs
-  iteration 2 and lands 0.026 above the iteration-1 pone crib figure, where
-  "Iterating the opponent model" records the movement as 0.003. The two are
-  measured differently, but not by enough to obviously explain ten times.
-  `tools/compare_model_iterations.py` is where to settle it. See ANALYSIS.md.
+- **Rerun the policy sweep under iteration 2** if the headline figures should
+  reflect the current tables. ANALYSIS.md's dealer 12.727 / pone 3.484 were
+  computed under iteration 1; the C gives 12.716 / 3.459 under iteration 2. The
+  difference is real but small, and both are recorded, so this is tidiness
+  rather than a correction.
 - **Pegging.** Everything here is hand and crib EV only. The play of the hand is
   untouched, and it is where the rest of the game lives.

@@ -56,7 +56,11 @@ slate rather than reordering it. Use the simple model to choose; apply the
 correction only when you need a calibrated absolute number.
 
 Going one level further — modelling *their* model of *you* — moves crib EV by
-0.003 points. That one is a dead end, and it is measured rather than assumed.
+about 0.025 points on the discard you actually play, and a tenth of that
+averaged across all fifteen. Small either way against the ~0.5 the first step
+bought, so that direction is a dead end — but the two numbers differ by ten
+times, and which one you quote depends on whether you are pricing a slate or
+playing a card.
 
 ## How it got fast enough to be possible
 

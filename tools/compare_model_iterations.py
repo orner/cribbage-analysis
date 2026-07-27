@@ -43,6 +43,7 @@ for is_dealer, label, table in [(True, "your crib  (you deal)", 'PONE_POLICY'),
     old_weights = C._expand(getattr(v1, table))
     crib_shift = []
     uniform_shift = []
+    played_shift = []
     same = 0
     for _ in range(400):
         deal = random.sample(C._DECK, 6)
@@ -50,11 +51,20 @@ for is_dealer, label, table in [(True, "your crib  (you deal)", 'PONE_POLICY'),
         second = C.evaluate_discards(deal, is_dealer, True, "policy")
         plain = C.evaluate_discards(deal, is_dealer, True)
         by_toss = {tuple(sorted(r.discard)): r.crib_ev for r in first}
+        new_by_toss = {tuple(sorted(r.discard)): r.crib_ev for r in second}
         flat = {tuple(sorted(r.discard)): r.crib_ev for r in plain}
         crib_shift += [r.crib_ev - by_toss[tuple(sorted(r.discard))] for r in second]
         uniform_shift += [r.crib_ev - flat[tuple(sorted(r.discard))] for r in second]
+        # The one discard you would actually play, repriced. Averaging over all
+        # fifteen dilutes the change: your choice is correlated with the classes
+        # the iteration moved, so the slate average understates what reaches the
+        # table -- and it is the played discard a sweep keeps.
+        best = tuple(sorted(first[0].discard))
+        played_shift.append(new_by_toss[best] - by_toss[best])
         same += first[0].keep == second[0].keep
+    mean = lambda xs: sum(xs) / len(xs)
     print(f"  {label}")
-    print(f"    crib EV, iteration 1 -> 2 : {sum(crib_shift) / len(crib_shift):+.3f} points")
-    print(f"    crib EV, uniform -> 2     : {sum(uniform_shift) / len(uniform_shift):+.3f} points")
-    print(f"    same discard chosen       : {same / 400:.1%} of deals")
+    print(f"    crib EV, iteration 1 -> 2, all 15 discards : {mean(crib_shift):+.4f} points")
+    print(f"    crib EV, iteration 1 -> 2, discard played  : {mean(played_shift):+.4f} points")
+    print(f"    crib EV, uniform -> 2, all 15 discards     : {mean(uniform_shift):+.4f} points")
+    print(f"    same discard chosen                        : {same / 400:.1%} of deals")

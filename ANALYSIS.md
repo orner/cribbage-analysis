@@ -20,8 +20,10 @@ for a hand EV of 22.78.
 ## Full-space results
 
 Every possible deal, weighted by multiplicity, playing the best discard against
-a policy opponent (the sweep ran under iteration 1 of the model; iteration 2
-moves crib EV by 0.003 points, so these stand):
+a policy opponent. The sweep ran under **iteration 1** of the model; re-running
+it under iteration 2 moves the totals by -0.011 and -0.025, so these are stable
+to about a fortieth of a point rather than exactly current -- see "The policy
+sweep, re-run in C" below:
 
 | | hand EV | crib EV | total |
 |---|---|---|---|
@@ -86,12 +88,13 @@ for the same iteration change (-0.005 and +0.032), so this is the model
 iteration talking, not a disagreement between the implementations -- which
 `c/tools/difftest.py` checks deal by deal.
 
-Worth a second look, though: the pone-side movement here is around +0.03,
-against the **+0.003** recorded under "Iterating the opponent model" below. Ten
-times larger. The two are measured differently -- that section reprices fixed
-discards over sampled hands, this re-chooses over the full space -- so they are
-not required to agree, but the gap is bigger than that difference alone
-comfortably explains. `tools/compare_model_iterations.py` is where to settle it.
+That pone-side +0.026 looked at first like it contradicted the +0.003 recorded
+under "Iterating the opponent model" below. It does not: the two measure
+different discards. That figure averaged the repricing across all fifteen; a
+sweep keeps only the one played, and the played discard moves about ten times
+further because the choice is correlated with the classes the iteration moved.
+`tools/compare_model_iterations.py` now reports both, and its played-discard
+numbers (-0.0092 and +0.0252) match this sweep's full-space deltas.
 
 ## What opponents actually throw
 
@@ -143,9 +146,10 @@ reach your four cards.
   class-weighted model (-0.60 / +0.39). They were built separately and agree.
 - The opponent being modelled originally decided using the *uniform* model.
   Iterating that -- regenerating the tables from players who best-respond to the
-  previous ones -- moved crib EV by 0.003 points and no throw class by more than
-  0.005, so the process has converged and the figures above are stable. See the
-  "Iterating the opponent model" section below.
+  previous ones -- moved crib EV by 0.003 points averaged over all fifteen
+  discards, 0.025 on the one actually played, and no throw class by more than
+  0.005. The process has converged and the figures above are stable to within
+  that. See the "Iterating the opponent model" section below.
 - The EV-lost figures are **upper bounds**. The realistic pricing averages 600
   sampled opponent throws per discard, and picking the argmax under a noisy
   estimate partly chases that noise.
@@ -180,13 +184,25 @@ It changes almost nothing.
 | `PONE_NAIVE` (control) | 0.0000 |
 | `DEALER_NAIVE` (control) | 0.0000 |
 
-| | iteration 1 -> 2 | uniform -> iteration 2 | same discard |
-|---|---|---|---|
-| your crib | **-0.003** | -0.598 | 97.2% |
-| their crib | **+0.003** | +0.395 | 96.8% |
+| | iter 1 -> 2, all 15 | iter 1 -> 2, discard played | uniform -> iter 2 | same discard |
+|---|---|---|---|---|
+| your crib | -0.0027 | **-0.0092** | -0.598 | 97.2% |
+| their crib | +0.0033 | **+0.0252** | +0.395 | 96.8% |
 
-The second step is 200x smaller than the first and points the same way, which is
-convergence rather than oscillation. The naive controls moving *exactly* zero is
+Two columns, because the answer depends on which discard you ask about. Averaged
+across all fifteen the second step is tiny. But you only ever play one of them,
+and that one moves three to eight times further: your choice is correlated with
+the classes the iteration moved, so the slate average dilutes it. As pone you
+pick the throw that starves the dealer's crib, which lands you squarely in the
+part of `DEALER_POLICY` that shifted.
+
+The played column is also the only one a sweep can see, since a sweep keeps
+`[0]`. The C policy sweep's full-space deltas against the iteration-1 figures
+above are -0.009 and +0.026, against -0.0092 and +0.0252 here -- a 400-deal
+sample and a 962,988-deal enumeration agreeing to a thousandth.
+
+Even on the played discard the second step is 20x smaller than the first and
+points the same way, which is convergence rather than oscillation. The naive controls moving *exactly* zero is
 the check that the comparison is wired correctly: naive players ignore the crib,
 so no opponent model can reach their decisions, and both runs used the same seed
 and therefore the same 50,000 hands. Drift there would have meant a bug.
@@ -195,7 +211,11 @@ The largest movers are the near-indifferent cases you would expect -- the pone
 shuffling between 10-K, 7-K and 8-K, the dealer nudging toward A-3 and A-4.
 
 **Modelling the opponent is worth about half a point of calibration; modelling
-their model of you is worth nothing.** A third iteration would be wasted compute.
+their model of you is worth about 0.025 on the discard you actually play.** Not
+nothing -- an earlier version of this file said nothing, on the strength of the
+all-fifteen average alone -- but around 5% of what the first step bought, and
+still small against the 0.4 to 0.6 the uniform assumption costs. A third
+iteration would be wasted compute.
 
 
 ## Performance
