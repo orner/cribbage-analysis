@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+
+# Machine-local Claude Code permissions, not shared project config.
+.claude/settings.local.json
+
+# Sweep outputs: ~100 MB, and tools/sweep_*.py regenerates them in ~15-25 min.
+*.psv
+crib_sweep*.log
