@@ -89,17 +89,24 @@ Same machine, 32 cores.
 
 | | Python | this C |
 |---|---|---|
-| one scoring | 52 ns (PyPy), 177 ns (CPython) | **1.83 ns** |
-| one deal, crib EV | ~70 ms (CPython) | 1.25 ms |
+| one scoring | 52 ns (PyPy), 177 ns (CPython) | **~2.6 ns** |
+| one deal, crib EV | ~70 ms (CPython) | ~1.8 ms |
 | enumerate canonical deals | ~1 min (serial) | 0.5 s |
 | full hand-EV sweep | 1.0 min (32 cores) | 0.9 s (32 threads) |
 | full crib sweep, both roles | 23.9 min, policy (32 cores) | ~3 min, policy or uniform (32 threads) |
 
-The per-scoring figure subtracts a measured process-startup baseline; the sweep
-rows are plain wall clock.
+The per-scoring figure subtracts a measured process-startup baseline, best of
+three at 100 iterations; the sweep rows are plain wall clock. Treat it as rough
+-- an earlier single cold run put it at 1.83 ns, which was optimistic because
+the baseline being subtracted was itself measured cold.
 
 `../NOTES.md` estimated 3-5 ns per scoring for a C core before one existed,
-which turned out to be a slightly pessimistic guess.
+which turned out to be about right, if slightly pessimistic.
+
+On an older machine -- a Ryzen 9 3900X against this 9950X3D -- the same binary
+scores in about 4.8 ns and runs the threaded hand sweep in 1.9 s against 0.9 s.
+Roughly 1.8x per core, and only 2.1x overall despite a third fewer threads,
+because enumeration is serial and by then dominates the wall clock.
 
 ## The opponent model
 

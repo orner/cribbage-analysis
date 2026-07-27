@@ -78,7 +78,7 @@ fixed that, in order of size:
    values counts the ranks without carrying — the table lookup needs no sort,
    no tuple and no sequence hash.
 
-Scoring went from 4.6 µs to 0.15 µs in Python, and to **1.83 ns** in C.
+Scoring went from 4.6 µs to 0.15 µs in Python, and to roughly **2.6 ns** in C.
 
 ## Correctness
 

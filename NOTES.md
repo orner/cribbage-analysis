@@ -136,8 +136,9 @@ exactly, which exercises every branch against an implementation already trusted.
   -- scoring, both EVs, canonicalisation, the opponent model, and a threaded
   sweep -- checked against this library by `c/tools/difftest.py` on random hands
   and deals under all three opponent models, with zero mismatches. Scoring
-  measured at **1.83 ns**, against the 3-5 ns estimated and PyPy's 52 ns. It is
-  not bound to the Python API; see the note below.
+  measured at roughly **2.6 ns**, against the 3-5 ns estimated and PyPy's 52 ns
+  -- so the estimate was about right. It is not bound to the Python API; see the
+  note below.
 
 - **The opponent model is ported.** `c/opponent_model_data.c` is generated from
   `opponent_model.py` by `c/tools/gen_opponent_model_c.py`, so this file stays
